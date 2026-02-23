@@ -16,7 +16,9 @@
 - **Multi-Server Management**: Add and switch between multiple Sharkord servers seamlessly via a dedicated sidebar.
 - **Real-time Status & Notifications**: Integrated tRPC/WebSocket support provides unread message badges and server online/offline status at a glance.
 - **Client-side Enhancements**: Automatic JavaScript injection to autologin to your Sharkord servers.
- 
+
+ <img width="1367" height="820" alt="image" src="https://github.com/user-attachments/assets/ebc70246-b387-48f0-b68b-eb2daf8d916a" />
+
 
 ## Tech Stack
 
