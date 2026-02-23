@@ -19,8 +19,7 @@
     },
     "linux": {
         "target": [
-            "tar.gz",
-            "deb"
+            "AppImage"
         ],
         "icon": "icon.png"
     }
