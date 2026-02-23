@@ -1,0 +1,27 @@
+{
+    "appId": "com.sharkord.metaclient",
+    "productName": "Sharkord Meta Client",
+    "directories": {
+        "output": "release"
+    },
+    "files": [
+        "dist/**/*",
+        "package.json",
+        "icon.ico",
+        "icon.png"
+    ],
+    "npmRebuild": false,
+    "win": {
+        "target": [
+            "portable"
+        ],
+        "icon": "icon.ico"
+    },
+    "linux": {
+        "target": [
+            "tar.gz",
+            "deb"
+        ],
+        "icon": "icon.png"
+    }
+}

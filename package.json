@@ -1,0 +1,37 @@
+{
+  "name": "sharkord-meta-client",
+  "version": "0.1.0",
+  "author": "Ricis",
+  "private": true,
+  "type": "module",
+  "main": "dist/main.js",
+  "license": "MIT",
+  "description": "Meta client for Sharkord",
+  "scripts": {
+    "dev": "bun --hot src/index.ts",
+    "start": "NODE_ENV=production bun src/index.ts",
+    "build": "bun run build.ts",
+    "build:main": "bun build src/main.ts --outdir ./dist --target node --external electron && bun build src/preload.ts --outdir ./dist --target node --external electron --format cjs",
+    "dev:electron": "bun run build:main && concurrently \"bun run dev\" \"nodemon --watch src/main.ts --exec \\\"bun run build:main && bunx electron .\\\"\"",
+    "build:release": "bun run build && bunx electron-builder --config electron-builder.json --win --linux --x64",
+    "build:win": "bun run build && bunx electron-builder --config electron-builder.json --win --x64",
+    "build:linux": "bun run build && bunx electron-builder --config electron-builder.json --linux --x64"
+  },
+  "dependencies": {
+    "@trpc/client": "11.6.0",
+    "bun-plugin-tailwind": "^0.1.2",
+    "electron-store": "^11.0.2",
+    "react": "^19",
+    "react-dom": "^19",
+    "tailwindcss": "^4.1.11"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "concurrently": "^9.2.1",
+    "electron": "^40.6.0",
+    "electron-builder": "^26.8.1",
+    "nodemon": "^3.1.11"
+  }
+}
