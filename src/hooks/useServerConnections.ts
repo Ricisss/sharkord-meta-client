@@ -3,6 +3,7 @@ import type { ServerData } from '../interfaces/ServerData';
 import { SharkordClient } from '../api/sharkord-client';
 import type { Channel, ChannelPermissions, SharkordServerStateData } from '@/interfaces/SharkordServerStateData';
 import type { MessageData } from '@/interfaces/MessageData';
+import { app } from 'electron';
 
 export interface ServerConnectionState {
     isOnline: boolean;
@@ -15,6 +16,9 @@ export function useServerConnections(servers: ServerData[], activeServerId: stri
     const readStatesRef = useRef<Record<string, Record<number, number>>>({});
     const permittedChannelsRef = useRef<Record<string, Set<number>>>({});
     const serverLoginDataRef = useRef<Record<string, SharkordServerStateData>>({});
+    const lastOpenedChannelId = useRef<Record<string, number>>({});
+    const activeServerIdRef = useRef<string | null>(activeServerId);
+    activeServerIdRef.current = activeServerId;
 
     // Cleanup function to disconnect a specific server client
     const cleanupClient = (serverId: string) => {
@@ -140,14 +144,20 @@ export function useServerConnections(servers: ServerData[], activeServerId: stri
 
                                 //Check if user has VIEW_CHANNEL permission for this channel
                                 if (!permitted?.has(messageData.channelId)) {
-                                    console.log(`[WS] User does not have VIEW_CHANNEL permission for channel ${messageData.channelId}`);
+                                    console.log(`User does not have VIEW_CHANNEL permission for channel ${messageData.channelId}`);
                                     return;
                                 }
                                 //Check if current user is the sender
                                 if (messageData.userId === serverLoginDataRef.current[server.id]?.ownUserId) {
-                                    console.log(`[WS] Current user is the sender`);
+                                    console.log(`Current user is the sender`);
                                     return;
                                 }
+                                //Check if the channel is the last opened channel and user is currently viewing the same server
+                                if (messageData.channelId === lastOpenedChannelId.current[server.id] && activeServerIdRef.current === server.id) {
+                                    console.log(`Channel is the last opened channel and user is viewing this server`);
+                                    return;
+                                }
+
 
                                 // Update local ground truth for this channel
                                 const currentStates = readStatesRef.current[server.id] || {};
@@ -175,6 +185,7 @@ export function useServerConnections(servers: ServerData[], activeServerId: stri
                         const readStateSubscription = trpc.channels.onReadStateUpdate.subscribe(undefined, {
                             onData: (data) => {
                                 console.log(`[WS] Read state update for server ${server.name}:`, data);
+                                lastOpenedChannelId.current[server.id] = data.channelId;
                                 const currentStates = readStatesRef.current[server.id] || {};
                                 currentStates[data.channelId] = data.count;
                                 readStatesRef.current[server.id] = currentStates;
@@ -231,6 +242,45 @@ export function useServerConnections(servers: ServerData[], activeServerId: stri
 
 
 
+    // Mark a single channel as read on a specific server
+    const markChannelAsRead = async (serverId: string, channelId: number) => {
+        const entry = clientsRef.current[serverId];
+        if (!entry || !entry.client.isConnected()) return;
+
+        const serverReadStates = readStatesRef.current[serverId];
+        const currentUnread = serverReadStates?.[channelId] || 0;
+        if (currentUnread === 0) return; // Nothing to mark
+
+        const trpc = entry.client.getTRPC();
+
+        try {
+            console.log(`Marking channel ${channelId} as read on server ${serverId}`);
+            await trpc.channels.markAsRead.mutate({ channelId });
+
+            // Update local ground truth ref
+            if (readStatesRef.current[serverId]) {
+                readStatesRef.current[serverId][channelId] = 0;
+            }
+
+            // Recalculate total unread count for this server
+            const permitted = permittedChannelsRef.current[serverId] || new Set();
+            const updatedStates = readStatesRef.current[serverId] || {};
+            const totalUnread = Object.entries(updatedStates).reduce((sum, [id, count]) => {
+                return sum + (permitted.has(Number(id)) ? (Number(count) || 0) : 0);
+            }, 0);
+
+            setConnectionStates(prev => {
+                const existingState = prev[serverId] || { isOnline: true, unreadCount: 0 };
+                return {
+                    ...prev,
+                    [serverId]: { ...existingState, unreadCount: totalUnread }
+                };
+            });
+        } catch (error) {
+            console.error(`Failed to mark channel ${channelId} as read on server ${serverId}:`, error);
+        }
+    };
+
     const markAsRead = async (serverId: string) => {
         // 1. Update local state for immediate feedback
         setConnectionStates(prev => {
@@ -242,40 +292,32 @@ export function useServerConnections(servers: ServerData[], activeServerId: stri
             };
         });
 
-        // 2. Mark all channels as read on the server
-        const entry = clientsRef.current[serverId];
+        // 2. Mark all unread permitted channels as read on the server
         const serverReadStates = readStatesRef.current[serverId];
+        if (!serverReadStates) return;
 
-        if (entry && entry.client.isConnected() && serverReadStates) {
-            const trpc = entry.client.getTRPC();
+        const channelIdsToMark = Object.entries(serverReadStates)
+            .filter(([id, count]) => (Number(count) || 0) > 0 && permittedChannelsRef.current[serverId]?.has(Number(id)))
+            .map(([id, _]) => Number(id));
 
-            // Filter channels that actually have unread messages and that we have permission to see
-            const channelIdsToMark = Object.entries(serverReadStates)
-                .filter(([id, count]) => (Number(count) || 0) > 0 && permittedChannelsRef.current[serverId]?.has(Number(id)))
-                .map(([id, _]) => Number(id));
+        console.log(`[WS] Marking ${channelIdsToMark.length} channels as read for server ${serverId}`);
 
-            console.log(`[WS] Marking ${channelIdsToMark.length} channels as read for server ${serverId}`);
-
-            try {
-                // Perform concurrently
-                await Promise.all(channelIdsToMark.map((channelId) => {
-                    console.log(`Marking channel ${channelId} as read`);
-                    return trpc.channels.markAsRead.mutate({ channelId }).catch(e => {
-                        console.error(`Failed to mark channel ${channelId} as read:`, e);
-                    })
-                }));
-
-                // Update local ground truth ref
-                channelIdsToMark.forEach(id => {
-                    if (readStatesRef.current[serverId]) {
-                        readStatesRef.current[serverId][id] = 0;
-                    }
-                });
-            } catch (error) {
-                console.error(`Error marking all as read for server ${serverId}:`, error);
-            }
+        try {
+            await Promise.all(channelIdsToMark.map(channelId => markChannelAsRead(serverId, channelId)));
+        } catch (error) {
+            console.error(`Error marking all as read for server ${serverId}:`, error);
         }
     };
 
-    return { connectionStates, markAsRead };
+    // When user switches to a server, mark the last opened channel on that server as read
+    useEffect(() => {
+        if (!activeServerId) return;
+        const channelId = lastOpenedChannelId.current[activeServerId];
+        if (channelId !== undefined) {
+            markChannelAsRead(activeServerId, channelId);
+            console.log("MARKING CHANNEL AS READ: ", channelId);
+        }
+    }, [activeServerId]);
+
+    return { connectionStates, markAsRead, markChannelAsRead };
 }
