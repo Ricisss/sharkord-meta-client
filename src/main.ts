@@ -7,6 +7,13 @@ const store = new Store();
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+function isWayland(): boolean {
+  return (
+    process.env.WAYLAND_DISPLAY !== undefined &&
+    process.platform === "linux"
+  );
+}
+
 // Holds the pending getDisplayMedia callback while the picker modal is open
 let pendingScreenShareCallback: ((source: any) => void) | null = null;
 
@@ -94,8 +101,24 @@ app.whenReady().then(() => {
 
   // When getDisplayMedia is requested, show the picker modal inside the main window
   session.defaultSession.setDisplayMediaRequestHandler((request, callback) => {
-    pendingScreenShareCallback = callback;
-    mainWindow.webContents.send('show-screen-picker');
+    if (isWayland()) {
+      // Use native picker on wayland
+      desktopCapturer
+        .getSources({ types: ["screen", "window"] })
+        .then((sources) => {
+          callback({
+            video: sources[0],
+            audio: "loopback",
+          });
+        })
+        .catch((error) => {
+          console.error("[ScreenShare] Failed to get sources:",error);
+          callback({ video: undefined as any });
+        });
+    } else {
+      pendingScreenShareCallback = callback;
+      mainWindow.webContents.send("show-screen-picker");
+    }
   });
 
   // Handle the user's source selection (or cancellation) from the modal
