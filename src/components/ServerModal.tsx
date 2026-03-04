@@ -4,7 +4,7 @@ import type { ServerData } from '../interfaces/ServerData';
 interface ServerModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onSubmit: (data: { name: string; url: string; identity: string; password?: string; }) => void;
+    onSubmit: (data: { name: string; url: string; port: string; identity: string; password: string; }) => void;
     server?: ServerData | null;
 }
 
@@ -12,6 +12,7 @@ const ServerModal: React.FC<ServerModalProps> = ({ isOpen, onClose, onSubmit, se
     const isEditing = !!server;
     const [name, setName] = useState('');
     const [url, setUrl] = useState('');
+    const [port, setPort] = useState('');
     const [identity, setIdentity] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState<string | null>(null);
@@ -22,11 +23,13 @@ const ServerModal: React.FC<ServerModalProps> = ({ isOpen, onClose, onSubmit, se
             if (server) {
                 setName(server.name);
                 setUrl(server.url);
+                setPort(server.port || '');
                 setIdentity(server.identity);
                 setPassword(server.password || '');
             } else {
                 setName('');
                 setUrl('');
+                setPort('');
                 setIdentity('');
                 setPassword('');
             }
@@ -48,7 +51,7 @@ const ServerModal: React.FC<ServerModalProps> = ({ isOpen, onClose, onSubmit, se
 
             if (response.ok) {
                 console.log('Successfully connected to:', checkUrl);
-                onSubmit({ name, url: checkUrl, identity, password });
+                onSubmit({ name, url: checkUrl, port, identity, password });
                 onClose();
             } else {
                 setError(`Server returned status: ${response.status}`);
@@ -77,7 +80,7 @@ const ServerModal: React.FC<ServerModalProps> = ({ isOpen, onClose, onSubmit, se
                                 value={name}
                                 onChange={(e) => setName(e.target.value)}
                                 required
-                                className="w-full bg-[#1E1F22] text-[#DBDEE1] rounded px-3 py-2.5 outline-none focus:ring-1 focus:ring-[#5865F2] transition-all"
+                                className="w-full bg-[#1E1F22] text-[#DBDEE1] placeholder:text-[#DBDEE1]/30 rounded px-3 py-2.5 outline-none focus:ring-1 focus:ring-[#5865F2] transition-all"
                                 placeholder="Server name"
                             />
                         </div>
@@ -88,16 +91,38 @@ const ServerModal: React.FC<ServerModalProps> = ({ isOpen, onClose, onSubmit, se
                             </div>
                         )}
 
-                        <div>
-                            <label className="block text-xs font-bold text-[#B5BAC1] uppercase mb-2">Server URL</label>
-                            <input
-                                type="url"
-                                value={url}
-                                onChange={(e) => setUrl(e.target.value)}
-                                required
-                                className="w-full bg-[#1E1F22] text-[#DBDEE1] rounded px-3 py-2.5 outline-none focus:ring-1 focus:ring-[#5865F2] transition-all"
-                                placeholder="https://demo.sharkord.com/"
-                            />
+                        <div className="flex gap-4">
+                            <div className="flex-[3]">
+                                <label className="block text-xs font-bold text-[#B5BAC1] uppercase mb-2">URL</label>
+                                <input
+                                    type="text"
+                                    value={url}
+                                    onChange={(e) => setUrl(e.target.value)}
+                                    required
+                                    className="w-full bg-[#1E1F22] text-[#DBDEE1] placeholder:text-[#DBDEE1]/20 rounded px-3 py-2.5 outline-none focus:ring-1 focus:ring-[#5865F2] transition-all"
+                                    placeholder="https://demo.sharkord.com"
+                                />
+                            </div>
+                            <div className="flex-1 opacity-50 hover:opacity-100 focus-within:opacity-100 transition-opacity duration-200">
+                                <div className="flex items-center gap-1 mb-2">
+                                    <label className="block text-xs font-bold text-[#B5BAC1] uppercase">PORT</label>
+                                    <div className="group relative">
+                                        <div className="w-3.5 h-3.5 rounded-full bg-[#B5BAC1] text-[#313338] flex items-center justify-center text-[10px] font-bold cursor-help">?</div>
+                                        <div className="invisible group-hover:visible absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-40 bg-[#111214] text-white text-[10px] p-3 rounded shadow-xl border border-[#1E1F22] z-10 font-normal normal-case pointer-events-none leading-relaxed">
+                                            <p className="font-bold mb-1">Optional Server Port</p>
+                                            <p>Unless you are connecting to localhost, you probably want to leave this empty!</p>
+                                            <p>If you are connecting to localhost, the default server port is <span className="text-[#5865F2]">4991</span>.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <input
+                                    type="text"
+                                    value={port}
+                                    onChange={(e) => setPort(e.target.value.replace(/\D/g, ''))}
+                                    className="w-full bg-[#1E1F22] text-[#DBDEE1] placeholder:text-[#DBDEE1]/20 rounded px-3 py-2.5 outline-none focus:ring-1 focus:ring-[#5865F2] transition-all"
+                                    placeholder="4991"
+                                />
+                            </div>
                         </div>
 
                         <div>
@@ -107,7 +132,7 @@ const ServerModal: React.FC<ServerModalProps> = ({ isOpen, onClose, onSubmit, se
                                 value={identity}
                                 onChange={(e) => setIdentity(e.target.value)}
                                 required
-                                className="w-full bg-[#1E1F22] text-[#DBDEE1] rounded px-3 py-2.5 outline-none focus:ring-1 focus:ring-[#5865F2] transition-all"
+                                className="w-full bg-[#1E1F22] text-[#DBDEE1] placeholder:text-[#DBDEE1]/30 rounded px-3 py-2.5 outline-none focus:ring-1 focus:ring-[#5865F2] transition-all"
                                 placeholder="Guest"
                             />
                         </div>
@@ -119,7 +144,7 @@ const ServerModal: React.FC<ServerModalProps> = ({ isOpen, onClose, onSubmit, se
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 required
-                                className="w-full bg-[#1E1F22] text-[#DBDEE1] rounded px-3 py-2.5 outline-none focus:ring-1 focus:ring-[#5865F2] transition-all"
+                                className="w-full bg-[#1E1F22] text-[#DBDEE1] placeholder:text-[#DBDEE1]/30 rounded px-3 py-2.5 outline-none focus:ring-1 focus:ring-[#5865F2] transition-all"
                                 placeholder="••••••••"
                             />
                         </div>

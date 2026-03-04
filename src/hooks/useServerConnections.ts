@@ -63,6 +63,7 @@ export function useServerConnections(servers: ServerData[], activeServerId: stri
 
                 const client = new SharkordClient({
                     host: server.url,
+                    port: server.port,
                     useSSL: server.url.startsWith('https://')
                 });
 

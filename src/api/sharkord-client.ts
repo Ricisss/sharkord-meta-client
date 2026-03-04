@@ -11,7 +11,8 @@ import { createTRPCProxyClient, createWSClient, wsLink } from "@trpc/client";
 
 export interface ClientConfig {
     host: string;
-    useSSL?: boolean;
+    port: string;
+    useSSL: boolean;
 }
 
 export interface LoginCredentials {
@@ -48,18 +49,27 @@ export class SharkordClient {
     }
 
     /**
+     * Get the URL for the Sharkord server
+     */
+    getURL(protocol: string): string {
+        const urlObj = new URL(this.config.host);
+        const cleanHost = urlObj.hostname;
+
+        // Add server port if it exists
+        let port = this.config.port ? ":" + this.config.port : "";
+
+        const result = `${protocol}://${cleanHost}${port}`;
+        return result;
+    }
+
+    /**
      * Login to the Sharkord server via HTTP
      */
     async login(credentials: LoginCredentials): Promise<LoginResponse> {
         const protocol = this.config.useSSL ? "https" : "http";
-        // host comes in as a full URL from ServerData usually, let's strip http/https if present
-        let cleanHost = this.config.host;
-        if (cleanHost.startsWith("http://")) cleanHost = cleanHost.substring(7);
-        if (cleanHost.startsWith("https://")) cleanHost = cleanHost.substring(8);
+        const url = this.getURL(protocol);
 
-        const url = `${protocol}://${cleanHost}/login`;
-
-        const response = await fetch(url, {
+        const response = await fetch(url + "/login", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
@@ -108,13 +118,9 @@ export class SharkordClient {
         }
 
         const protocol = this.config.useSSL ? "wss" : "ws";
-        let cleanHost = this.config.host;
-        if (cleanHost.startsWith("http://")) cleanHost = cleanHost.substring(7);
-        if (cleanHost.startsWith("https://")) cleanHost = cleanHost.substring(8);
+        const wsUrl = this.getURL(protocol);
 
-        const wsUrl = `${protocol}://${cleanHost}`;
-
-        this.logger(`🔌 Connecting to WebSocket`);
+        this.logger(`🔌 Connecting to WebSocket: ${wsUrl}`);
 
         this.isSocketOpen = false;
         this.connectPromise = new Promise((resolve) => {

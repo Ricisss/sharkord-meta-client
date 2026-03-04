@@ -61,13 +61,14 @@ function App() {
     saveServers();
   }, [servers, hasLoaded]);
 
-  const handleAddServer = (data: { name: string; url: string; identity: string; password?: string }) => {
+  const handleAddServer = (data: { name: string; url: string; port: string; identity: string; password: string }) => {
     const newServer: ServerData = {
       id: crypto.randomUUID(),
       name: data.name,
       url: data.url.replace(/\/$/, ""),
+      port: data.port,
       identity: data.identity,
-      password: data.password ?? "",
+      password: data.password,
     };
 
     const updatedServers = [...servers, newServer];
@@ -98,7 +99,7 @@ function App() {
     }
   };
 
-  const handleSaveServer = (data: { name: string; url: string; identity: string; password?: string }) => {
+  const handleSaveServer = (data: { name: string; url: string; port: string; identity: string; password: string }) => {
     if (editingServerId) {
       // Edit mode
       setServers((prev) =>
@@ -106,8 +107,9 @@ function App() {
           ...s,
           name: data.name,
           url: data.url.replace(/\/$/, ""),
+          port: data.port,
           identity: data.identity,
-          password: data.password || ""
+          password: data.password,
         } : s)
       );
     } else {
